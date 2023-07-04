@@ -2,7 +2,7 @@ import copy
 
 import numpy
 
-from .population import Individual
+from propulate.population import Individual
 
 
 def _check_compatible(out1, in2):
