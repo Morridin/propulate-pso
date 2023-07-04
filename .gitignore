@@ -4,6 +4,7 @@
 *.so
 *.cfg
 !propulate/.isort.cfg
+!.isort.cfg
 !setup.cfg
 *.orig
 *.log
