@@ -168,7 +168,7 @@ class Compose(Propagator):
 
         Returns
         -------
-        inds: list of propulate.population.Individual objects
+        particles: list of propulate.population.Individual objects
               individuals after application of propagator
         """
         for p in self.propagators:
@@ -675,72 +675,8 @@ class SelectUniform(Propagator):
             raise ValueError(
                 f"Has to have at least {self.offspring} individuals to select {self.offspring} from them."
             )
-        # Return a `self.offspring` length list of unique elements chosen from `inds`.
+        # Return a `self.offspring` length list of unique elements chosen from `particles`.
         # Used for random sampling without replacement.
         return self.rng.sample(inds, self.offspring)
 
 
-# TODO parents should be fixed to one NOTE see utils reason why it is not right now
-class InitUniform(Stochastic):
-    """
-    Initialize individuals by uniformly sampling specified limits for each trait.
-    """
-
-    def __init__(self, limits, parents=0, probability=1.0, rng=None):
-        """
-        Constructor of InitUniform class.
-
-        In case of parents > 0 and probability < 1., call returns input individual without change.
-
-        Parameters
-        ----------
-        limits : dict
-                 limits of (hyper-)parameters to be optimized
-        offspring : int
-                    number of offsprings (individuals to be selected)
-        rng : random.Random()
-              random number generator
-        """
-        super(InitUniform, self).__init__(parents, 1, probability, rng)
-        self.limits = limits
-
-    def __call__(self, *inds):
-        """
-        Apply uniform-initialization propagator.
-
-        Parameters
-        ----------
-        inds : list of propulate.population.Individual objects
-               individuals the propagator is applied to
-
-        Returns
-        -------
-        ind : propulate.population.Individual
-              list of selected individuals after application of propagator
-        """
-        if (
-            self.rng.random() < self.probability
-        ):  # Apply only with specified `probability`.
-            ind = Individual()  # Instantiate new individual.
-            for limit in self.limits:
-                # Randomly sample from specified limits for each trait.
-                if (
-                    type(self.limits[limit][0]) == int
-                ):  # If ordinal trait of type integer.
-                    ind[limit] = self.rng.randrange(*self.limits[limit])
-                elif (
-                    type(self.limits[limit][0]) == float
-                ):  # If interval trait of type float.
-                    ind[limit] = self.rng.uniform(*self.limits[limit])
-                elif (
-                    type(self.limits[limit][0]) == str
-                ):  # If categorical trait of type string.
-                    ind[limit] = self.rng.choice(self.limits[limit])
-                else:
-                    raise ValueError(
-                        "Unknown type of limits. Has to be float for interval, int for ordinal, or string for categorical."
-                    )
-            return ind
-        else:
-            ind = inds[0]
-            return ind  # Return 1st input individual w/o changes.
