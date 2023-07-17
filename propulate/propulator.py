@@ -793,16 +793,28 @@ class Propulator:
             import matplotlib.pyplot as plt
 
             xs = [x.generation for x in self.population]
-            ys = [x.loss for x in self.population]
             zs = [x.rank for x in self.population]
 
             fig, ax = plt.subplots()
+            ys: list[np.ndarray] = [x.position for x in self.population]
+            ys: list[float] = [np.sqrt(y.dot(y)) for y in ys]
             scatter = ax.scatter(xs, ys, c=zs)
             plt.xlabel("Generation")
-            plt.ylabel("Loss")
+            plt.ylabel("Distance")
             ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(f"isle_{self.isle_idx}_{out_file}")
             plt.close()
+
+            fig, ax = plt.subplots()
+            ys: list[np.ndarray] = [x.velocity for x in self.population]
+            ys: list[float] = [np.sqrt(y.dot(y)) for y in ys]
+            scatter = ax.scatter(xs, ys, c=zs)
+            plt.xlabel("Generation")
+            plt.ylabel("Velocity")
+            ax.legend(*scatter.legend_elements(), title="Rank")
+            plt.savefig(f"isle_{self.isle_idx}_v_{out_file}")
+            plt.close()
+
             Best = self.comm_inter.gather(best, root=0)
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank != 0:
