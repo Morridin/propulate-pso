@@ -2,7 +2,7 @@ import copy
 
 import numpy
 
-from propulate.population import Individual
+from .population import Individual
 
 
 def _check_compatible(out1, in2):
@@ -168,7 +168,7 @@ class Compose(Propagator):
 
         Returns
         -------
-        particles: list of propulate.population.Individual objects
+        inds: list of propulate.population.Individual objects
               individuals after application of propagator
         """
         for p in self.propagators:
@@ -231,7 +231,7 @@ class PointMutation(Stochastic):
             for i in to_mutate:
                 if type(ind[i]) == int:
                     # Return randomly selected element from int range(start, stop, step).
-                    ind[i] = self.rng.randrange(*self.limits[i])
+                    ind[i] = self.rng.randint(*self.limits[i])
                 elif type(ind[i]) == float:
                     # Return random floating point number N within limits.
                     ind[i] = self.rng.uniform(*self.limits[i])
@@ -309,7 +309,7 @@ class RandomPointMutation(Stochastic):
             for i in to_mutate:
                 if type(ind[i]) == int:
                     # Return randomly selected element from int range(start, stop, step).
-                    ind[i] = self.rng.randrange(*self.limits[i])
+                    ind[i] = self.rng.randint(*self.limits[i])
                 elif type(ind[i]) == float:
                     # Return random floating point number N within limits.
                     ind[i] = self.rng.uniform(*self.limits[i])
@@ -675,7 +675,7 @@ class SelectUniform(Propagator):
             raise ValueError(
                 f"Has to have at least {self.offspring} individuals to select {self.offspring} from them."
             )
-        # Return a `self.offspring` length list of unique elements chosen from `particles`.
+        # Return a `self.offspring` length list of unique elements chosen from `inds`.
         # Used for random sampling without replacement.
         return self.rng.sample(inds, self.offspring)
 
@@ -718,22 +718,29 @@ class InitUniform(Stochastic):
         ind : propulate.population.Individual
               list of selected individuals after application of propagator
         """
-        if (self.rng.random() < self.probability):  # Apply only with specified `probability`.
+        if (
+            self.rng.random() < self.probability
+        ):  # Apply only with specified `probability`.
             ind = Individual()  # Instantiate new individual.
             for limit in self.limits:
                 # Randomly sample from specified limits for each trait.
-                if (type(self.limits[limit][0]) == int):  # If ordinal trait of type integer.
-                    ind[limit] = self.rng.randrange(*self.limits[limit])
-                elif (type(self.limits[limit][0]) == float):  # If interval trait of type float.
+                if (
+                    type(self.limits[limit][0]) == int
+                ):  # If ordinal trait of type integer.
+                    ind[limit] = self.rng.randint(*self.limits[limit])
+                elif (
+                    type(self.limits[limit][0]) == float
+                ):  # If interval trait of type float.
                     ind[limit] = self.rng.uniform(*self.limits[limit])
-                elif (type(self.limits[limit][0]) == str):  # If categorical trait of type string.
+                elif (
+                    type(self.limits[limit][0]) == str
+                ):  # If categorical trait of type string.
                     ind[limit] = self.rng.choice(self.limits[limit])
                 else:
                     raise ValueError(
-                        "Unknown type of limits. Has to be float for interval, int for ordinal, or string for "
-                        "categorical.")
+                        "Unknown type of limits. Has to be float for interval, int for ordinal, or string for categorical."
+                    )
             return ind
         else:
             ind = inds[0]
             return ind  # Return 1st input individual w/o changes.
-
