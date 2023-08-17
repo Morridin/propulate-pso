@@ -23,20 +23,21 @@ class Propulator:
     Individuals can only exist on one evolutionary island at a time, i.e., they are removed
     (i.e. deactivated for breeding) from the sending island upon emigration.
     """
+
     def __init__(
-        self,
-        loss_fn: Callable,
-        propagator: Propagator,
-        island_idx: int = 0,
-        comm: MPI.Comm = MPI.COMM_WORLD,
-        generations: int = -1,
-        checkpoint_path: Union[str, Path] = Path("./"),
-        migration_topology: np.ndarray = None,
-        migration_prob: float = 0.,
-        emigration_propagator: Propagator = SelectMin,
-        island_displs: np.ndarray = None,
-        island_counts: np.ndarray = None,
-        rng: random.Random = None,
+            self,
+            loss_fn: Callable,
+            propagator: Propagator,
+            island_idx: int = 0,
+            comm: MPI.Comm = MPI.COMM_WORLD,
+            generations: int = -1,
+            checkpoint_path: Union[str, Path] = Path("./"),
+            migration_topology: np.ndarray = None,
+            migration_prob: float = 0.,
+            emigration_propagator: Propagator = SelectMin,
+            island_displs: np.ndarray = None,
+            island_counts: np.ndarray = None,
+            rng: random.Random = None,
     ) -> None:
         """
         Initialize Propulator with given parameters.
@@ -272,8 +273,8 @@ class Propulator:
 
                 # Worker sends *different* individuals to each target island.
                 emigrants = all_emigrants[
-                    offsprings_sent: offsprings_sent + offspring
-                ]  # Choose `offspring` eligible emigrants.
+                            offsprings_sent: offsprings_sent + offspring
+                            ]  # Choose `offspring` eligible emigrants.
                 offsprings_sent += offspring
                 log_string += f"Chose {len(emigrants)} emigrant(s): {emigrants}\n"
 
@@ -295,8 +296,8 @@ class Propulator:
                         copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG
                     )
                     log_string += (
-                        f"Sent {len(departing)} individual(s) to worker {r-self.island_displs[target_island]} "
-                        + f"on target island {target_island}.\n"
+                            f"Sent {len(departing)} individual(s) to worker {r - self.island_displs[target_island]} "
+                            + f"on target island {target_island}.\n"
                     )
 
                 # Deactivate emigrants for sending worker.
@@ -306,7 +307,7 @@ class Propulator:
                         idx
                         for idx, ind in enumerate(self.population)
                         if ind == emigrant
-                        and ind.migration_steps == emigrant.migration_steps
+                           and ind.migration_steps == emigrant.migration_steps
                     ]
                     assert len(to_deactivate) == 1  # There should be exactly one!
                     _, n_active_before = self._get_active_individuals()
@@ -315,8 +316,8 @@ class Propulator:
                     ].active = False  # Deactivate emigrant in population.
                     _, n_active_after = self._get_active_individuals()
                     log_string += (
-                        f"Deactivated own emigrant {self.population[to_deactivate[0]]}. "
-                        + f"Active before/after: {n_active_before}/{n_active_after}\n"
+                            f"Deactivated own emigrant {self.population[to_deactivate[0]]}. "
+                            + f"Active before/after: {n_active_before}/{n_active_after}\n"
                     )
             _, n_active = self._get_active_individuals()
             log_string += (
@@ -370,16 +371,16 @@ class Propulator:
                     immigrant.migration_steps += 1
                     assert immigrant.active is True
                     catastrophic_failure = (
-                        len(
-                            [
-                                ind
-                                for ind in self.population
-                                if ind == immigrant
-                                and immigrant.migration_steps == ind.migration_steps
-                                and immigrant.current == ind.current
-                            ]
-                        )
-                        > 0
+                            len(
+                                [
+                                    ind
+                                    for ind in self.population
+                                    if ind == immigrant
+                                       and immigrant.migration_steps == ind.migration_steps
+                                       and immigrant.current == ind.current
+                                ]
+                            )
+                            > 0
                     )
                     if catastrophic_failure:
                         raise RuntimeError(
@@ -470,9 +471,9 @@ class Propulator:
                 # Add new emigrants to list of emigrants to be deactivated.
                 self.emigrated = self.emigrated + copy.deepcopy(new_emigrants)
                 log_string += (
-                    f"Got {len(new_emigrants)} new emigrant(s) {new_emigrants} "
-                    + f"from worker {stat.Get_source()} to be deactivated.\n"
-                    + f"Overall {len(self.emigrated)} individuals to deactivate: {self.emigrated}\n"
+                        f"Got {len(new_emigrants)} new emigrant(s) {new_emigrants} "
+                        + f"from worker {stat.Get_source()} to be deactivated.\n"
+                        + f"Overall {len(self.emigrated)} individuals to deactivate: {self.emigrated}\n"
                 )
             # TODO In while loop or not?
             emigrated_copy = copy.deepcopy(self.emigrated)
@@ -482,7 +483,7 @@ class Propulator:
                     idx
                     for idx, ind in enumerate(self.population)
                     if ind == emigrant
-                    and ind.migration_steps == emigrant.migration_steps
+                       and ind.migration_steps == emigrant.migration_steps
                 ]
                 if len(to_deactivate) == 0:
                     log_string += f"Individual {emigrant} to deactivate not yet received.\n"
@@ -493,19 +494,19 @@ class Propulator:
                     idx
                     for idx, ind in enumerate(self.emigrated)
                     if ind == emigrant
-                    and ind.migration_steps == emigrant.migration_steps
+                       and ind.migration_steps == emigrant.migration_steps
                 ]
                 assert len(to_remove) == 1
                 self.emigrated.pop(to_remove[0])
                 log_string += (
-                    f"Deactivated {self.population[to_deactivate[0]]}.\n"
-                    + f"{len(self.emigrated)} individuals in emigrated.\n"
+                        f"Deactivated {self.population[to_deactivate[0]]}.\n"
+                        + f"{len(self.emigrated)} individuals in emigrated.\n"
                 )
         _, n_active = self._get_active_individuals()
         log_string += (
-            "After synchronization: "
-            + f"{n_active}/{len(self.population)} active.\n"
-            + f"{len(self.emigrated)} individuals in emigrated.\n"
+                "After synchronization: "
+                + f"{n_active}/{len(self.population)} active.\n"
+                + f"{len(self.emigrated)} individuals in emigrated.\n"
         )
         if debug == 2:
             print(log_string)
@@ -783,7 +784,7 @@ class Propulator:
             print("###########\n")
             print(
                 f"Number of currently active individuals is {num_active}. "
-                f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
+                f"\nExpected overall number of evaluations is {self.generations * MPI.COMM_WORLD.size}."
             )
         # Only double-check number of occurrences of each individual for DEBUG level 2.
         if debug == 2:
@@ -809,34 +810,48 @@ class Propulator:
             if self.comm.rank == 0:
                 res_str = f"Top {top_n} result(s) on island {self.island_idx}:\n"
                 for i in range(top_n):
-                    res_str += f"({i+1}): {unique_pop[i]}\n"
+                    res_str += f"({i + 1}): {unique_pop[i]}\n"
                 print(res_str)
         best = MPI.COMM_WORLD.allgather(best)
-
-        if self.comm.rank == 0:
-            import matplotlib.pyplot as plt
-
-            xs = [x.generation for x in self.population]
-            zs = [x.rank for x in self.population]
-
-            fig, ax = plt.subplots()
-            ys: list[np.ndarray] = [x.position for x in self.population]
-            ys: list[float] = [np.sqrt(y.dot(y)) for y in ys]
-            scatter = ax.scatter(xs, ys, c=zs)
-            plt.xlabel("Generation")
-            plt.ylabel("Distance")
-            ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(f"isle_{self.isle_idx}_{out_file}")
-            plt.close()
-
-            fig, ax = plt.subplots()
-            ys: list[np.ndarray] = [x.velocity for x in self.population]
-            ys: list[float] = [np.sqrt(y.dot(y)) for y in ys]
-            scatter = ax.scatter(xs, ys, c=zs)
-            plt.xlabel("Generation")
-            plt.ylabel("Velocity")
-            ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(f"isle_{self.isle_idx}_v_{out_file}")
-            plt.close()
-
         return best
+
+    def paint_graphs(self, function_name: str):
+        import matplotlib.pyplot as plt
+        from matplotlib.axes import Axes
+
+        if os.path.exists("images") and not os.path.isdir("images"):
+            os.remove("images")
+        if not os.path.exists("images"):
+            os.mkdir("images")
+
+        out_file = f"images/isle_{self.island_idx}_%1.png"
+        max_gen: int = self.generations if self.generations > -1 else np.max([x.generation for x in self.population])
+
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+
+        xs: List[float] = [x["a"] for x in self.population]
+        ys: List[float] = [x["b"] for x in self.population]
+        cs: List[int] = [x.generation for x in self.population]
+        zs: List[float] = [x.loss for x in self.population]
+
+        scatter = ax.scatter(xs, ys, zs, c=cs, cmap="hsv")
+
+        plt.xlabel("x")
+        plt.ylabel("y")
+        ax.legend(*scatter.legend_elements(), title=f"gen + {max_gen * max_gen} * rank", loc='center right',
+                  bbox_to_anchor=(0.05, 0.5))
+        plt.savefig(out_file.replace("%1", f"{function_name}_positions"))
+        plt.close()
+
+        # fig, ax = plt.subplots()
+        # zs = [x.rank for x in self.population]
+        # xs: list[float] = [x.generation for x in self.population]
+        # ys: list[np.ndarray] = [x.velocity for x in self.population]
+        # ys: list[float] = [np.sqrt(y.dot(y)) for y in ys]
+        # scatter = ax.scatter(xs, ys, c=zs)
+        # plt.xlabel("Generation")
+        # plt.ylabel("Velocity")
+        # ax.legend(*scatter.legend_elements(), title="Rank")
+        # plt.savefig(out_file.replace("%1", f"{function_name}_velocity"))
+        # plt.close()
