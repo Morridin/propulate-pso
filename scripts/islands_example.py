@@ -79,4 +79,4 @@ if __name__ == "__main__":
 
     # Run actual optimization.
     islands.evolve(top_n=config.top_n, logging_interval=config.logging_int, debug=config.verbosity)
-    islands.propulator.paint_graphs(config.function)
+    # islands.propulator.paint_graphs(config.function)
