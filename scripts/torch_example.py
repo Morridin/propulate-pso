@@ -34,6 +34,7 @@ class Net(LightningModule):
     def __init__(self, convlayers, activation, lr, loss_fn):
         super(Net, self).__init__()
 
+        self.best_accuracy: float = 0.0
         self.lr = lr
         self.loss_fn = loss_fn
         layers = []
@@ -124,7 +125,7 @@ def ind_loss(params):
                       )
     trainer.fit(model, train_loader, val_loader)
 
-    return -model.best_accuracy.item()
+    return -model.best_accuracy
 
 
 if __name__ == "__main__":
