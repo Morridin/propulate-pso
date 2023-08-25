@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import random
+import time
 from mpi4py import MPI
 
 from propulate import Islands
@@ -62,6 +63,11 @@ if __name__ == "__main__":
     )
     np.fill_diagonal(migration_topology, 0)             # An island does not send migrants to itself.
 
+    if MPI.COMM_WORLD.rank == 0:
+        print("#-----------------------------------#")
+        print(f"| Current time: {time.time_ns()} |")
+        print("#-----------------------------------#")
+
     # Set up island model.
     islands = Islands(
         loss_fn=function,
@@ -80,3 +86,9 @@ if __name__ == "__main__":
     # Run actual optimization.
     islands.evolve(top_n=config.top_n, logging_interval=config.logging_int, debug=config.verbosity)
     # islands.propulator.paint_graphs(config.function)
+
+    if MPI.COMM_WORLD.rank == 0:
+        print("#-----------------------------------#")
+        print(f"| Current time: {time.time_ns()} |")
+        print("#-----------------------------------#")
+
