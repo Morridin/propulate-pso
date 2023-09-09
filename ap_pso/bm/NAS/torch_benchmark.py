@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-
+import logging
 import random
+import string
 import sys
 import time
 from typing import Tuple, Dict, Union
@@ -20,17 +21,18 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 from mpi4py import MPI
 
 from ap_pso.propagators import *
-from propulate import Islands
+from propulate import Islands, set_logger_config, Migrator
 from propulate.propagators import Conditional
 
-num_generations = 10
+num_generations = int(sys.argv[2])
 pop_size = 2 * MPI.COMM_WORLD.size
-GPUS_PER_NODE = 1  # 4
-log_path = "torch_ckpts"
+GPUS_PER_NODE = int(sys.argv[3])
+log_path = "tbm/" if len(sys.argv) < 6 else sys.argv[5]
 
 limits = {
     "conv_layers": (2.0, 10.0),
     "lr": (0.01, 0.0001),
+    "epochs": (2.0, float(sys.argv[4]))
 }
 
 
@@ -151,11 +153,11 @@ class Net(LightningModule):
         """
         Calculate and store the model's validation accuracy after each epoch.
         """
-        val_acc_val = self.val_acc.compute()
-        self.log("val_acc_val", val_acc_val)
+        val_acc_val: torch.Tensor = self.val_acc.compute()
         self.val_acc.reset()
-        if val_acc_val > self.best_accuracy:
-            self.best_accuracy = val_acc_val
+        if val_acc_val.item() > self.best_accuracy:
+            self.best_accuracy = val_acc_val.item()
+
 
 def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     """
@@ -175,31 +177,28 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     """
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
 
-    if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
-        train_loader = DataLoader(
-            dataset=MNIST(
-                download=True, root=".", transform=data_transform,
-            ),  # Use MNIST training dataset.
-            batch_size=batch_size,  # Batch size
-            shuffle=True,  # Shuffle data.
-        )
-        MPI.COMM_WORLD.Barrier()
-    else:
-        MPI.COMM_WORLD.Barrier()
-        train_loader = DataLoader(
-            dataset=MNIST(
-                root=".", transform=data_transform
-            ),  # Use MNIST training dataset.
-            batch_size=batch_size,  # Batch size
-            shuffle=True,  # Shuffle data.
-        )
+    dl_root = f"{log_path}/data/rank{MPI.COMM_WORLD.rank:0>2}"
+    train_loader = DataLoader(
+        dataset=MNIST(
+            download=True, root=dl_root, transform=data_transform,
+        ),  # Use MNIST training dataset.
+        batch_size=batch_size,  # Batch size
+        shuffle=True,  # Shuffle data.
+        pin_memory=True,
+        num_workers=4,
+        persistent_workers=True
+    )
     val_loader = DataLoader(
         dataset=MNIST(
-            root=".", transform=data_transform, train=False
+            root=dl_root, transform=data_transform, train=False
         ),  # Use MNIST testing dataset.
         shuffle=False,  # Do not shuffle data.
+        pin_memory=True,
+        num_workers=4,
+        persistent_workers=True
     )
     return train_loader, val_loader
+
 
 def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
     """
@@ -216,12 +215,16 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
     """
     # Extract hyperparameter combination to test from input dictionary.
     conv_layers = int(np.round(params["conv_layers"]))  # Number of convolutional layers
-    if conv_layers < 1:
-        return float(10 - 10 * conv_layers)
-    # activation = params["activation"]  # Activation function
+    epochs = int(np.round(params["epochs"]))
     lr = params["lr"]  # Learning rate
 
-    epochs = 2  # Number of epochs to train
+    extra_loss: float = 0 # additional penalty loss, if PSO is bad-behaved.
+    if conv_layers < 2:
+        extra_loss += float(10 - 5 * conv_layers)
+        conv_layers = 2
+    if epochs < 2:
+        extra_loss += float(10 - 5 * epochs)
+        epochs = 2
 
     activations = {
         "relu": nn.ReLU,
@@ -233,39 +236,49 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
     loss_fn = (
         torch.nn.CrossEntropyLoss()
     )  # Use cross-entropy loss for multi-class classification.
-
     model = Net(
         conv_layers, activation, lr, loss_fn
     )  # Set up neural network with specified hyperparameters.
     model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
-
     train_loader, val_loader = get_data_loaders(
         batch_size=8
     )  # Get training and validation data loaders.
-
     tb_logger = loggers.TensorBoardLogger(
-        save_dir=log_path + "/lightning_logs"
+        save_dir=log_path + "lightning_logs"
     )  # Get tensor board logger.
-
     # Under the hood, the Lightning Trainer handles the training loop details.
     trainer = Trainer(
         max_epochs=epochs,  # Stop training once this number of epochs is reached.
         accelerator="gpu",  # Pass accelerator type.
         devices=[MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE],  # Devices to train on
-        enable_progress_bar=True,  # Disable progress bar.
-        logger=tb_logger,  # Logger
+        enable_progress_bar=False,  # Disable progress bar.
+        logger=tb_logger  # Logger
     )
+    print(f"[R{MPI.COMM_WORLD.rank:0>2}]: Starting training with configuration: \n"
+          f"    Epochs:               {epochs:>3}\n"
+          f"    Convolutional layers: {conv_layers:>3}\n"
+          f"    Learning rate:        {lr:>8.4f}")
     trainer.fit(  # Run full model training optimization routine.
         model=model,  # Model to train
         train_dataloaders=train_loader,  # Dataloader for training samples
         val_dataloaders=val_loader,  # Dataloader for validation samples
     )
     # Return negative best validation accuracy as an individual's loss.
-    return -model.best_accuracy
+    print(f"#-----------------------------------------#"
+          f"| [R{MPI.COMM_WORLD.rank:0>2}] Current time: {time.time_ns()} |"
+          f"#-----------------------------------------#")
+    return -model.best_accuracy + extra_loss
 
 
 if __name__ == "__main__":
     rng = random.Random(MPI.COMM_WORLD.rank)
+
+    # Set up separate logger for Propulate optimization.
+    set_logger_config(
+        level=logging.DEBUG,  # logging level DEBUG > INFO > WARNING > ERROR > CRITICAL
+        log_file=f"{log_path}islands.log",  # logging path
+    )
+
     pso = [
         VelocityClampingPropagator(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng, 0.6),
         ConstrictionPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng),
@@ -281,9 +294,9 @@ if __name__ == "__main__":
         print("#-----------------------------------#")
 
     propagator = Conditional(pop_size, pso, PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank))
-    islands = Islands(ind_loss, propagator, rng, generations=num_generations, pollination=False,
-                      migration_probability=0, checkpoint_path=log_path)
-    islands.evolve(top_n=1, debug=2)
+    propulator = Migrator(ind_loss, propagator, rng=rng, generations=num_generations,
+                          checkpoint_path=log_path + "checkpoints")
+    propulator.propulate(debug=0, logging_interval=1)
 
     if MPI.COMM_WORLD.rank == 0:
         print("#-----------------------------------#")
