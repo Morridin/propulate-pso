@@ -1,19 +1,19 @@
 #!/bin/bash
 #SBATCH --partition=gpu_4_a100
 #SBATCH --gres=gpu:4
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=16
-#SBATCH --cpus-per-task=4
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=8
 #SBATCH --time=16:00:00
 #SBATCH --mem=510000
-#SBATCH --output="/pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/NAS.out"
-#SBATCH --job-name="NAS"
+#SBATCH --output="/pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/NAS3.out"
+#SBATCH --job-name="NAS3"
 #SBATCH --mail-type=all
 #SBATCH --mail-user=pa1164@partner.kit.edu
 
 cd \$(ws_find propulate_bm_1)
 ml purge
 ml restore propulate
-mkdir /pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/tbm/
+mkdir /pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/tbm3/
 source /pfs/work7/workspace/scratch/pa1164-propulate_bm_1/.venvs/async-parallel-pso/bin/activate
-mpirun --bind-to core --map-by core --mca btl ^ofi python -u /pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/torch_benchmark.py 3 64 4 400 /pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/tbm/
+mpirun --bind-to core --map-by core --mca btl ^ofi python -u /pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/torch_benchmark.py 3 64 4 400 /pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/tbm3/

@@ -185,7 +185,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
         batch_size=batch_size,  # Batch size
         shuffle=True,  # Shuffle data.
         pin_memory=True,
-        num_workers=4,
+        num_workers=8,
         persistent_workers=True
     )
     val_loader = DataLoader(
@@ -194,7 +194,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
         ),  # Use MNIST testing dataset.
         shuffle=False,  # Do not shuffle data.
         pin_memory=True,
-        num_workers=4,
+        num_workers=8,
         persistent_workers=True
     )
     return train_loader, val_loader
