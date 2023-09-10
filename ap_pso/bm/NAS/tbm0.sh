@@ -11,7 +11,7 @@
 #SBATCH --mail-type=all
 #SBATCH --mail-user=pa1164@partner.kit.edu
 
-cd \$(ws_find propulate_bm_1)
+cd $(ws_find propulate_bm_1)
 ml purge
 ml restore propulate
 mkdir /pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso/ap_pso/bm/NAS/tbm0/
