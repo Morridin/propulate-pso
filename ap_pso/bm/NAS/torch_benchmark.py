@@ -44,9 +44,10 @@ class Net(LightningModule):
         self.best_accuracy = 0.0
         layers = []
         layers += [
-            nn.Sequential(nn.Conv2d(3,
+            nn.Sequential(nn.Conv2d(1,
                                     10,
-                                    kernel_size=5),
+                                    kernel_size=3,
+                                    padding=1),
                           activation()),
         ]
         layers += [
@@ -234,23 +235,27 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
     loss_fn = (
         torch.nn.CrossEntropyLoss()
     )  # Use cross-entropy loss for multi-class classification.
+
     model = Net(
         conv_layers, activation, lr, loss_fn
     )  # Set up neural network with specified hyperparameters.
     model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
+
     train_loader, val_loader = get_data_loaders(
         batch_size=8
     )  # Get training and validation data loaders.
+
     tb_logger = loggers.TensorBoardLogger(
         save_dir=log_path + "lightning_logs"
     )  # Get tensor board logger.
+
     # Under the hood, the Lightning Trainer handles the training loop details.
     trainer = Trainer(
         max_epochs=epochs,  # Stop training once this number of epochs is reached.
         accelerator="gpu",  # Pass accelerator type.
         devices=[MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE],  # Devices to train on
-        enable_progress_bar=False,  # Disable progress bar.
-        logger=tb_logger  # Logger
+        enable_progress_bar=True,  # Disable progress bar.
+        logger=tb_logger,  # Logger
     )
     print(f"[R{MPI.COMM_WORLD.rank:0>2}]: Starting training with configuration: \n"
           f"    Epochs:               {epochs:>3}\n"
@@ -280,7 +285,7 @@ if __name__ == "__main__":
     pso = [
         VelocityClampingPropagator(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng, 0.6),
         ConstrictionPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng),
-        BasicPSOPropagator(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng),
+        BasicPSOPropagator(0.7298, 0.5, 0.5, MPI.COMM_WORLD.rank, limits, rng),
         CanonicalPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
     ][int(sys.argv[1])]
 
