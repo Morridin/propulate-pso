@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import logging
 import random
-import string
 import sys
 import time
 from typing import Tuple, Dict, Union
@@ -15,13 +14,13 @@ from torch.utils.data import DataLoader
 from pytorch_lightning import LightningModule, Trainer
 from torchmetrics import Accuracy
 
-from torchvision.datasets import MNIST
+from torchvision.datasets import CIFAR10
 from torchvision.transforms import Compose, ToTensor, Normalize
 
 from mpi4py import MPI
 
 from ap_pso.propagators import *
-from propulate import Islands, set_logger_config, Migrator
+from propulate import set_logger_config, Migrator
 from propulate.propagators import Conditional
 
 num_generations = int(sys.argv[2])
@@ -45,10 +44,9 @@ class Net(LightningModule):
         self.best_accuracy = 0.0
         layers = []
         layers += [
-            nn.Sequential(nn.Conv2d(1,
+            nn.Sequential(nn.Conv2d(3,
                                     10,
-                                    kernel_size=3,
-                                    padding=1),
+                                    kernel_size=5),
                           activation()),
         ]
         layers += [
@@ -179,7 +177,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
     dl_root = f"{log_path}/data/rank{MPI.COMM_WORLD.rank:0>2}"
     train_loader = DataLoader(
-        dataset=MNIST(
+        dataset=CIFAR10(
             download=True, root=dl_root, transform=data_transform,
         ),  # Use MNIST training dataset.
         batch_size=batch_size,  # Batch size
@@ -189,7 +187,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
         persistent_workers=True
     )
     val_loader = DataLoader(
-        dataset=MNIST(
+        dataset=CIFAR10(
             root=dl_root, transform=data_transform, train=False
         ),  # Use MNIST testing dataset.
         shuffle=False,  # Do not shuffle data.
@@ -264,8 +262,8 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         val_dataloaders=val_loader,  # Dataloader for validation samples
     )
     # Return negative best validation accuracy as an individual's loss.
-    print(f"#-----------------------------------------#"
-          f"| [R{MPI.COMM_WORLD.rank:0>2}] Current time: {time.time_ns()} |"
+    print(f"#-----------------------------------------#\n"
+          f"| [R{MPI.COMM_WORLD.rank:0>2}] Current time: {time.time_ns()} |\n"
           f"#-----------------------------------------#")
     return -model.best_accuracy + extra_loss
 
@@ -282,7 +280,7 @@ if __name__ == "__main__":
     pso = [
         VelocityClampingPropagator(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng, 0.6),
         ConstrictionPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng),
-        BasicPSOPropagator(0.7298, 0.5, 0.5, MPI.COMM_WORLD.rank, limits, rng),
+        BasicPSOPropagator(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng),
         CanonicalPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
     ][int(sys.argv[1])]
 
