@@ -1,5 +1,6 @@
 import pickle
 from pathlib import Path
+from typing import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,9 +10,23 @@ from matplotlib.figure import Figure
 functions = ("Sphere", "Rosenbrock", "Step", "Quartic", "Rastrigin", "Griewank", "Schwefel", "BiSphere", "BiRastrigin")
 pso_names = ("VelocityClamping", "Constriction", "Basic", "Canonical")
 other_stuff = ("Vanilla Propulate", "Hyppopy")
+marker_list = ("o", "s", "D", "^", "P", "X")  # ["o", "v", "^", "<", ">", "s", "p", "P", "*", "h", "X", "D"]
 
-time_path = Path("./slurm3/")
-path = Path("./results3/")
+# scaling_type = "strong"
+scaling_type = "weak"
+
+if scaling_type == "strong":
+    core_counts = [1, 2, 4, 8, 16]
+    core_count_repr = [64, 128, 256, 512, 1024]  # [1, 2, 4, 8, 16]
+    time_path = Path("./slurm3/")
+    path = Path("./results3/")
+elif scaling_type == "weak":
+    core_counts = [1, 2, 4, 8, 0.5]
+    core_count_repr = [32, 64, 128, 256, 512]  # ["1/2", 1, 2, 4, 8]
+    time_path = Path("./slurm5A/")
+    path = Path("./results5/")
+else:
+    raise ValueError("Invalid scaling type.")
 
 
 def insert_data(d_array, idx: int, pt: Path):
@@ -28,39 +43,34 @@ def insert_data(d_array, idx: int, pt: Path):
             d_array[idx].append([min(tm, key=lambda v: v.loss).loss, (max(tm, key=lambda v: v.rank).rank + 1) / 64])
 
 
-def refine_value(raw_value) -> int:
+def create_time_data() -> dict[str, dict[str, list[float]]]:
     """
-    This function ensures that values that are larger than they should be, are corrected to the correct number of cores.
+    This function finds all necessary data to create all time values we need.
+
+    Parameters
+    ----------
     """
-    for x in range(5):
-        if raw_value < 2 ** x:
-            return 2 ** (x - 1)
-    else:
-        return 16
+    def calc_time(iterator) -> float:
+        """
+        This function takes an iterator on a certain string array and calculates out of this a time span in seconds.
+        """
+        useless = "\n|: Ceirmnrtu"
+        try:
+            start = int(next(iterator).strip(useless))
+        except ValueError:
+            return np.nan
+        try:
+            end = int(next(iterator).strip(useless))
+        except ValueError:
+            return np.nan
+        return (end - start) / 1e9
 
-
-def calc_time(iterator) -> float:
-    """
-    This function takes an iterator on a certain string array and calculates out of this a time span in seconds.
-    """
-    try:
-        start = int(next(iterator).strip("\n|: Ceirmnrtu"))
-    except ValueError:
-        return np.nan
-    try:
-        end = int(next(iterator).strip("\n|: Ceirmnrtu"))
-    except ValueError:
-        return np.nan
-    return (end - start) / 1e9
-
-
-if __name__ == "__main__":
     raw_time_data: list[str] = []
     time_data: dict[str, dict[str, list[float]]] = {}
 
-    for function_name in functions:
+    for function_name in pso_names + other_stuff:
         time_data[function_name] = {}
-        for program in other_stuff + pso_names:
+        for program in functions:
             time_data[function_name][program] = []
 
     for file in time_path.iterdir():
@@ -72,14 +82,18 @@ if __name__ == "__main__":
         itx = iter(scatter)
         for program in other_stuff:
             for function_name in functions:
-                time_data[function_name][program].append(calc_time(itx))
+                time_data[program][function_name].append(calc_time(itx))
         for function_name in functions:
             for program in pso_names:
-                time_data[function_name][program].append(calc_time(itx))
+                time_data[program][function_name].append(calc_time(itx))
+    return time_data
+
+
+if __name__ == "__main__":
+    time_data = create_time_data()
 
     for function_name in functions:
         data = []
-        marker_list = ("o", "s", "D", "^", "P", "X")  # ["o", "v", "^", "<", ">", "s", "p", "P", "*", "h", "X", "D"]
 
         for i in range(5):
             data.append([])
@@ -89,6 +103,7 @@ if __name__ == "__main__":
                 d = f"bm_{i}_{function_name.lower()}_?"
             for p in path.glob(d):
                 insert_data(data, i, p)
+                print(function_name, i, data[i])
             data[i] = np.array(sorted(data[i], key=lambda v: v[1])).T
         data.append([])
         for p in path.glob(f"bm_H_{function_name.lower()}_?"):
@@ -97,63 +112,62 @@ if __name__ == "__main__":
             file = p / Path("result_0.pkl")
             with open(file, "rb") as f:
                 tmp = pickle.load(f, fix_imports=True)
-                data[-1].append([min(tmp[0]["losses"]), 2000 // len(tmp[0])])
-                if data[-1][-1][1] not in (1, 2, 4, 8, 16):
-                    data[-1][-1][1] = refine_value(data[-1][-1][1])
+                nodes = int(p.name[-1])
+                data[-1].append([min(tmp[0]["losses"]), core_counts[nodes]])
+                print(f"Hyppopy core count:", data[-1][-1][1])
         data[5] = np.array(sorted(data[5], key=lambda v: v[1])).T
 
         fig: Figure
-        ax: Axes
+        ax1: Axes; ax2: Axes
 
-        fig, ax = plt.subplots()
+        fig, (ax2, ax1) = plt.subplots(2, sharex=True, gridspec_kw={"hspace": 0, "height_ratios": (3, 5)})
         # fig.subplots_adjust(hspace=0)
 
-        ax.set_title(f"PSO@Propulate on {function_name} function")
-        ax.set_xlabel("Nodes")
-        ax.set_xscale("log", base=2)
-        ax.set_xticks([1, 2, 4, 8, 16], [1, 2, 4, 8, 16])
-        ax.grid(True)
-        ax.set_ylabel("Loss")
+        ax1.set_xlabel("Workers")
+        ax1.set_xscale("log", base=2)
+        ax1.set_xticks(sorted(core_counts), core_count_repr)
+        ax1.grid(True)
+        ax1.set_ylabel("Loss")
 
-        ax_t = ax.twinx()
-        ax_t.set_ylabel("Time [s]")
-        ax_t.set_yscale("log")
-
+        ax2.grid(True)
+        ax2.set_ylabel("Time (s)")
+        ax2.set_yscale("log")
         everything = pso_names + other_stuff
         for i, name in enumerate(everything):
             if i < 4:
                 ms = 6
             else:
                 ms = 7
-            ax.plot(data[i][1], data[i][0], label=name, marker=marker_list[i], ls="dashed", lw=2, ms=ms)
-            ax_t.plot(data[i][1], time_data[function_name][name], marker=marker_list[i], ls="dotted", ms=ms)
+            ax1.plot(data[i][1], data[i][0], label=name, marker=marker_list[i], lw=0.75, ms=ms)
+            ax2.plot(data[i][1], time_data[name][function_name], marker=marker_list[i], lw=0.75, ms=ms)
 
-        if function_name == "Rosenbrock":
-            ax.set_yscale("symlog", linthresh=1e-36)
-            ax.set_yticks([0, 1e-36, 1e-30, 1e-24, 1e-18, 1e-12, 1e-6, 1])
-            ax.set_ylim(-5e-36, 1)
+        if function_name == "Rosenbrock" and scaling_type == "strong":
+            ax1.set_yscale("symlog", linthresh=1e-36)
+            ax1.set_yticks([0, 1e-36, 1e-30, 1e-24, 1e-18, 1e-12, 1e-6, 1])
+            ax1.set_ylim(-5e-36, 1)
         elif function_name == "Step":
-            ax.set_yscale("symlog")
-            ax.set_ylim(-1e5, -5)
+            ax1.set_yscale("symlog")
+            ax1.set_ylim(-1e5, -5)
         elif function_name == "Schwefel":
-            ax.set_yscale("symlog")
-            ax.set_ylim(-50000, 5000)
-        elif function_name in ("Schwefel", "Rastrigin", "BiSphere", "BiRastrigin"):
-            ax.set_yscale("linear")
+            ax1.set_yscale("symlog")
+            ax1.set_ylim(-50000, 5000)
+        elif function_name in ("Schwefel", "Rastrigin", "BiSphere", "BiRastrigin") or function_name == "Rosenbrock" and scaling_type == "weak":
+            ax1.set_yscale("linear")
         else:
-            ax.set_yscale("log")
-        ax.legend()
+            ax1.set_yscale("log")
 
+        box = ax1.get_position(), ax2.get_position()
+        ax1.set_position([box[0].x0, box[0].y0, box[0].width * 0.8, box[0].height])
+        ax2.set_position([box[1].x0, box[1].y0, box[1].width * 0.8, box[1].height])
+
+        fig.legend(loc="center right", bbox_to_anchor=(0.95, 0.5))
+        fig.set_size_inches(10, 6)
         fig.show()
 
-        save_path = Path(f"images/pso_{function_name.lower()}.png")
+        save_path = Path(f"images/{scaling_type}/pso_{function_name.lower()}.svg")
         if save_path.parent.exists() and not save_path.parent.is_dir():
             OSError("There is something in the way. We can't store our paintings.")
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
-        fig.savefig(save_path)
-        fig.savefig(save_path.with_suffix(".svg"))
-        fig.savefig(save_path.with_suffix(".pdf"))
         fig.savefig(save_path.with_stem(save_path.stem + "_T"), transparent=True)
-        fig.savefig(save_path.with_stem(save_path.stem + "_T").with_suffix(".svg"), transparent=True)
         fig.savefig(save_path.with_stem(save_path.stem + "_T").with_suffix(".pdf"), transparent=True)

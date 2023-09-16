@@ -6,4 +6,5 @@ __all__ = ["Propagator", "Stochastic", "Conditional", "Compose", "PointMutation"
            "IntervalMutationNormal", "MateUniform", "MateMultiple", "MateSigmoid", "SelectMin", "SelectMax",
            "SelectUniform", "InitUniform"]
 
-from propulate.propagators.propagators import *
+from .propagators import Propagator, Stochastic, Conditional, Compose, PointMutation, RandomPointMutation, \
+    IntervalMutationNormal, MateUniform, MateMultiple, MateSigmoid, SelectMin, SelectMax, SelectUniform, InitUniform
