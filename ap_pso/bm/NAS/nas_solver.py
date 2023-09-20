@@ -7,7 +7,7 @@ from matplotlib.axes import Axes
 from matplotlib.colors import CSS4_COLORS
 from matplotlib.figure import Figure
 
-input_file = Path("NAS3.out")  # The checkpoint file, where the data lies.
+input_file = Path("NAS0.out")  # The checkpoint file, where the data lies.
 broken = True
 if not broken:
     with open(input_file, "rb") as f:
@@ -70,13 +70,15 @@ ax.set_xlabel("Time (h)")
 ax.set_ylabel("Loss value (negative accuracy)")
 ax.set_ylim(-0.7, 0)
 
-mpa = ax.scatter(**particle_scatter, s=4, label="Loss per particle, colorcoded by rank", cmap="plasma_r")
+mpa = ax.scatter(**particle_scatter, s=4, label="Loss per particle", cmap="plasma_r")
 ax.plot(*median_data, color="r", label="Median loss")
 ax.plot(*min_data, color="b", label=f"Minimum loss ({min_data[1][-1]})")
 
 ax.legend()
+ax.grid()
 
-fig.colorbar(mpa)
+color_bar = fig.colorbar(mpa, aspect=40, ticks=[0, 5, 10, 15, 20, 25])
+color_bar.set_label("Particle generation")
 
 fig.show()
 fig.savefig(input_file.stem + ".svg", transparent=True)

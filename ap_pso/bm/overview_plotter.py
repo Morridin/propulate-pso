@@ -41,15 +41,13 @@ if __name__ == "__main__":
         else:
             ms = 7
         dp = np.array(averaged_time_data[name])
+        for j, x in enumerate(dp):
+            dp[j] = x[0] / x
         if scaling_type == "strong":
             # Show speed-up
-            for j, x in enumerate(dp):
-                dp[j] = x[0] / x
             dp[0], dp[2] = dp[0] - dp[1], dp[1] - dp[2]
         elif scaling_type == "weak":
             # Show efficiency
-            for j, x in enumerate(dp):
-                dp[j] = x[1] / x
             dp[0], dp[2] = dp[1] - dp[0], dp[2] - dp[1]
         else:
             raise ValueError("Invalid scaling type.")

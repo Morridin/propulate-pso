@@ -50,6 +50,7 @@ def create_time_data() -> dict[str, dict[str, list[float]]]:
     Parameters
     ----------
     """
+
     def calc_time(iterator) -> float:
         """
         This function takes an iterator on a certain string array and calculates out of this a time span in seconds.
@@ -103,7 +104,6 @@ if __name__ == "__main__":
                 d = f"bm_{i}_{function_name.lower()}_?"
             for p in path.glob(d):
                 insert_data(data, i, p)
-                print(function_name, i, data[i])
             data[i] = np.array(sorted(data[i], key=lambda v: v[1])).T
         data.append([])
         for p in path.glob(f"bm_H_{function_name.lower()}_?"):
@@ -114,14 +114,13 @@ if __name__ == "__main__":
                 tmp = pickle.load(f, fix_imports=True)
                 nodes = int(p.name[-1])
                 data[-1].append([min(tmp[0]["losses"]), core_counts[nodes]])
-                print(f"Hyppopy core count:", data[-1][-1][1])
         data[5] = np.array(sorted(data[5], key=lambda v: v[1])).T
 
         fig: Figure
-        ax1: Axes; ax2: Axes
+        ax1: Axes
+        ax2: Axes
 
         fig, (ax2, ax1) = plt.subplots(2, sharex=True, gridspec_kw={"hspace": 0, "height_ratios": (3, 5)})
-        # fig.subplots_adjust(hspace=0)
 
         ax1.set_xlabel("Workers")
         ax1.set_xscale("log", base=2)
@@ -130,7 +129,12 @@ if __name__ == "__main__":
         ax1.set_ylabel("Loss")
 
         ax2.grid(True)
-        ax2.set_ylabel("Time (s)")
+        if scaling_type == "strong":
+            ax2.set_ylabel("Speed-up")
+        elif scaling_type == "weak":
+            ax2.set_ylabel("Efficiency")
+        else:
+            raise ValueError("Unknown scaling type")
         ax2.set_yscale("log")
         everything = pso_names + other_stuff
         for i, name in enumerate(everything):
@@ -151,7 +155,9 @@ if __name__ == "__main__":
         elif function_name == "Schwefel":
             ax1.set_yscale("symlog")
             ax1.set_ylim(-50000, 5000)
-        elif function_name in ("Schwefel", "Rastrigin", "BiSphere", "BiRastrigin") or function_name == "Rosenbrock" and scaling_type == "weak":
+        elif function_name in (
+                "Schwefel", "Rastrigin", "BiSphere",
+                "BiRastrigin") or function_name == "Rosenbrock" and scaling_type == "weak":
             ax1.set_yscale("linear")
         else:
             ax1.set_yscale("log")
@@ -166,7 +172,7 @@ if __name__ == "__main__":
 
         save_path = Path(f"images/{scaling_type}/pso_{function_name.lower()}.svg")
         if save_path.parent.exists() and not save_path.parent.is_dir():
-            OSError("There is something in the way. We can't store our paintings.")
+            raise OSError("There is something in the way. We can't store our paintings.")
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         fig.savefig(save_path.with_stem(save_path.stem + "_T"), transparent=True)
