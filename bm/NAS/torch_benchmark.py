@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""
+This is the python script with which I conducted my NAS experiments.
+
+It is derived from the torch example in the tutorials folder.
+"""
 import logging
 import random
 import sys
@@ -8,20 +13,16 @@ from typing import Tuple, Dict, Union
 import numpy as np
 import torch
 from lightning.pytorch import loggers
+from mpi4py import MPI
+from pytorch_lightning import LightningModule, Trainer
 from torch import nn
 from torch.utils.data import DataLoader
-
-from pytorch_lightning import LightningModule, Trainer
 from torchmetrics import Accuracy
-
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import Compose, ToTensor, Normalize
 
-from mpi4py import MPI
-
-from ap_pso.propagators import *
-from propulate import set_logger_config, Migrator
-from propulate.propagators import Conditional
+from propulate import set_logger_config, Propulator
+from propulate.propagators import Conditional, pso, Propagator
 
 num_generations = int(sys.argv[2])
 pop_size = 2 * MPI.COMM_WORLD.size
@@ -31,7 +32,7 @@ log_path = "tbm/" if len(sys.argv) < 6 else sys.argv[5]
 limits = {
     "conv_layers": (2.0, 10.0),
     "lr": (0.01, 0.0001),
-    "epochs": (2.0, float(sys.argv[4]))
+    "epochs": (2.0, float(sys.argv[4])),
 }
 
 
@@ -44,25 +45,17 @@ class Net(LightningModule):
         self.best_accuracy = 0.0
         layers = []
         layers += [
-            nn.Sequential(nn.Conv2d(1,
-                                    10,
-                                    kernel_size=3,
-                                    padding=1),
-                          activation()),
+            nn.Sequential(nn.Conv2d(1, 10, kernel_size=3, padding=1), activation()),
         ]
         layers += [
-            nn.Sequential(nn.Conv2d(10,
-                                    10,
-                                    kernel_size=3,
-                                    padding=1),
-                          activation())
+            nn.Sequential(nn.Conv2d(10, 10, kernel_size=3, padding=1), activation())
             for _ in range(convlayers - 1)
         ]
 
         self.fc = nn.Linear(7840, 10)
         self.conv_layers = nn.Sequential(*layers)
 
-        self.val_acc = Accuracy('multiclass', num_classes=10)
+        self.val_acc = Accuracy("multiclass", num_classes=10)
         self.train_acc = Accuracy("multiclass", num_classes=10)
 
     def forward(self, x):
@@ -86,7 +79,7 @@ class Net(LightningModule):
         return x
 
     def training_step(
-            self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Calculate loss for training step in Lightning train loop.
@@ -112,7 +105,7 @@ class Net(LightningModule):
         return loss_val
 
     def validation_step(
-            self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Calculate loss for validation step in Lightning validation loop during training.
@@ -179,22 +172,24 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     dl_root = f"{log_path}/data/rank{MPI.COMM_WORLD.rank:0>2}"
     train_loader = DataLoader(
         dataset=CIFAR10(
-            download=True, root=dl_root, transform=data_transform,
-        ),  # Use MNIST training dataset.
+            download=True,
+            root=dl_root,
+            transform=data_transform,
+        ),  # Use CIFAR-10 training dataset.
         batch_size=batch_size,  # Batch size
         shuffle=True,  # Shuffle data.
         pin_memory=True,
         num_workers=8,
-        persistent_workers=True
+        persistent_workers=True,
     )
     val_loader = DataLoader(
         dataset=CIFAR10(
             root=dl_root, transform=data_transform, train=False
-        ),  # Use MNIST testing dataset.
+        ),  # Use CIFAR-10 testing dataset.
         shuffle=False,  # Do not shuffle data.
         pin_memory=True,
         num_workers=8,
-        persistent_workers=True
+        persistent_workers=True,
     )
     return train_loader, val_loader
 
@@ -217,7 +212,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
     epochs = int(np.round(params["epochs"]))
     lr = params["lr"]  # Learning rate
 
-    extra_loss: float = 0 # additional penalty loss, if PSO is bad-behaved.
+    extra_loss: float = 0  # additional penalty loss, if PSO is bad-behaved.
     if conv_layers < 2:
         extra_loss += float(10 - 5 * conv_layers)
         conv_layers = 2
@@ -229,7 +224,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         "relu": nn.ReLU,
         "sigmoid": nn.Sigmoid,
         "tanh": nn.Tanh,
-        "leaky_relu": nn.LeakyReLU
+        "leaky_relu": nn.LeakyReLU,
     }  # Define activation function mapping.
     activation = activations["leaky_relu"]  # Get activation function.
     loss_fn = (
@@ -257,19 +252,23 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         enable_progress_bar=True,  # Disable progress bar.
         logger=tb_logger,  # Logger
     )
-    print(f"[R{MPI.COMM_WORLD.rank:0>2}]: Starting training with configuration: \n"
-          f"    Epochs:               {epochs:>3}\n"
-          f"    Convolutional layers: {conv_layers:>3}\n"
-          f"    Learning rate:        {lr:>8.4f}")
+    print(
+        f"[R{MPI.COMM_WORLD.rank:0>2}]: Starting training with configuration: \n"
+        f"    Epochs:               {epochs:>3}\n"
+        f"    Convolutional layers: {conv_layers:>3}\n"
+        f"    Learning rate:        {lr:>8.4f}"
+    )
     trainer.fit(  # Run full model training optimization routine.
         model=model,  # Model to train
         train_dataloaders=train_loader,  # Dataloader for training samples
         val_dataloaders=val_loader,  # Dataloader for validation samples
     )
     # Return negative best validation accuracy as an individual's loss.
-    print(f"#-----------------------------------------#\n"
-          f"| [R{MPI.COMM_WORLD.rank:0>2}] Current time: {time.time_ns()} |\n"
-          f"#-----------------------------------------#")
+    print(
+        f"#-----------------------------------------#\n"
+        f"| [R{MPI.COMM_WORLD.rank:0>2}] Current time: {time.time_ns()} |\n"
+        f"#-----------------------------------------#"
+    )
     return -model.best_accuracy + extra_loss
 
 
@@ -282,23 +281,30 @@ if __name__ == "__main__":
         log_file=f"{log_path}islands.log",  # logging path
     )
 
-    pso = [
-        VelocityClampingPropagator(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng, 0.6),
-        ConstrictionPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng),
-        BasicPSOPropagator(0.7298, 0.5, 0.5, MPI.COMM_WORLD.rank, limits, rng),
-        CanonicalPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
+    propagator: Propagator = [
+        pso.Basic(0.729, 1.49445, 1.49445, MPI.COMM_WORLD.rank, limits, rng),
+        pso.VelocityClamping(
+            0.729, 1.49445, 1.49445, MPI.COMM_WORLD.rank, limits, rng, 0.6
+        ),
+        pso.Constriction(2.05, 2.05, MPI.COMM_WORLD.rank, limits, rng),
+        pso.Canonical(2.05, 2.05, MPI.COMM_WORLD.rank, limits, rng),
     ][int(sys.argv[1])]
-
-    # propagator = get_default_propagator(pop_size, limits, 0.7, 0.4, 0.1, rng=rng)
 
     if MPI.COMM_WORLD.rank == 0:
         print("#-----------------------------------#")
         print(f"| Current time: {time.time_ns()} |")
         print("#-----------------------------------#")
 
-    propagator = Conditional(pop_size, pso, PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank))
-    propulator = Migrator(ind_loss, propagator, rng=rng, generations=num_generations,
-                          checkpoint_path=log_path + "checkpoints")
+    propagator = Conditional(
+        pop_size, propagator, pso.InitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
+    )
+    propulator = Propulator(
+        ind_loss,
+        propagator,
+        rng=rng,
+        generations=num_generations,
+        checkpoint_path=log_path + "checkpoints",
+    )
     propulator.propulate(debug=0, logging_interval=1)
 
     if MPI.COMM_WORLD.rank == 0:

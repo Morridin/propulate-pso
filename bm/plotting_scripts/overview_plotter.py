@@ -1,5 +1,6 @@
 """
-This file contains a second plotter program that uses some of the functionality of the graph plotter.
+This file contains a script that plots overview graphs containing speed-up or efficiency metrics, depending on the
+scaling type configured in graph_plotter.py.
 """
 from pathlib import Path
 
@@ -8,8 +9,15 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from ap_pso.bm.graph_plotter import create_time_data, core_counts, core_count_repr, pso_names, other_stuff, marker_list, \
-    scaling_type
+from graph_plotter import (
+    create_time_data,
+    pso_names,
+    other_stuff,
+    marker_list,
+    scaling_type,
+    core_counts,
+    core_count_repr,
+)
 
 if __name__ == "__main__":
     time_data = create_time_data()
@@ -17,7 +25,11 @@ if __name__ == "__main__":
 
     for program in pso_names + other_stuff:
         data = np.array(list(time_data[program].values()))
-        averaged_time_data[program] = [np.min(data, axis=0), np.average(data, axis=0), np.max(data, axis=0)]
+        averaged_time_data[program] = [
+            np.min(data, axis=0),
+            np.average(data, axis=0),
+            np.max(data, axis=0),
+        ]
 
     fig: Figure
     ax: Axes
@@ -51,9 +63,14 @@ if __name__ == "__main__":
             dp[0], dp[2] = dp[1] - dp[0], dp[2] - dp[1]
         else:
             raise ValueError("Invalid scaling type.")
-        ax.errorbar(sorted(core_counts), dp[1],
-                    [np.clip(dp[2], 0, None), np.clip(dp[0], 0, None)],
-                    label=name, marker=marker_list[i], ms=ms)
+        ax.errorbar(
+            sorted(core_counts),
+            dp[1],
+            [np.clip(dp[2], 0, None), np.clip(dp[0], 0, None)],
+            label=name,
+            marker=marker_list[i],
+            ms=ms,
+        )
     ax.legend()
     fig.show()
 
@@ -63,4 +80,6 @@ if __name__ == "__main__":
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
     fig.savefig(save_path.with_stem(save_path.stem + "_T"), transparent=True)
-    fig.savefig(save_path.with_stem(save_path.stem + "_T").with_suffix(".pdf"), transparent=True)
+    fig.savefig(
+        save_path.with_stem(save_path.stem + "_T").with_suffix(".pdf"), transparent=True
+    )

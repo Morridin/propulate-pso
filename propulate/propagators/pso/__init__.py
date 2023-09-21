@@ -1,3 +1,10 @@
+"""
+This module contains the complete collection of PSO propagators.
+
+The stateless PSO propagator is not included in the usual listing, as its performance as well as its handling differ
+strongly from the other propagators.
+You can get it by importing ``Stateless`` from ``pso.stateless``.
+"""
 __all__ = [
     "InitUniform",
     "Basic",

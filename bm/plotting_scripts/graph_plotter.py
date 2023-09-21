@@ -1,28 +1,64 @@
+"""
+This file contains the most-used graph plotter of them all.
+
+This script is designed to plot graphs of every single benchmark function optimization I ran, for the weak scaling
+series as well as for the strong scaling series.
+
+Also, it handles some values for the overview plotter.
+"""
 import pickle
 from pathlib import Path
-from typing import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-functions = ("Sphere", "Rosenbrock", "Step", "Quartic", "Rastrigin", "Griewank", "Schwefel", "BiSphere", "BiRastrigin")
+functions = (
+    "Sphere",
+    "Rosenbrock",
+    "Step",
+    "Quartic",
+    "Rastrigin",
+    "Griewank",
+    "Schwefel",
+    "BiSphere",
+    "BiRastrigin",
+)
 pso_names = ("VelocityClamping", "Constriction", "Basic", "Canonical")
 other_stuff = ("Vanilla Propulate", "Hyppopy")
-marker_list = ("o", "s", "D", "^", "P", "X")  # ["o", "v", "^", "<", ">", "s", "p", "P", "*", "h", "X", "D"]
+marker_list = (
+    "o",
+    "s",
+    "D",
+    "^",
+    "P",
+    "X",
+)  # ["o", "v", "^", "<", ">", "s", "p", "P", "*", "h", "X", "D"]  # <-- Excess markers, in case you need...
 
-# scaling_type = "strong"
-scaling_type = "weak"
+# scaling_type = "strong"  # Select one of ...
+scaling_type = "weak"  # ... these two lines.
 
 if scaling_type == "strong":
     core_counts = [1, 2, 4, 8, 16]
-    core_count_repr = [64, 128, 256, 512, 1024]  # [1, 2, 4, 8, 16]
+    core_count_repr = [
+        64,
+        128,
+        256,
+        512,
+        1024,
+    ]  # [1, 2, 4, 8, 16]  # <-- The out commented array is the node count.
     time_path = Path("./slurm3/")
     path = Path("./results3/")
 elif scaling_type == "weak":
     core_counts = [1, 2, 4, 8, 0.5]
-    core_count_repr = [32, 64, 128, 256, 512]  # ["1/2", 1, 2, 4, 8]
+    core_count_repr = [
+        32,
+        64,
+        128,
+        256,
+        512,
+    ]  # ["1/2", 1, 2, 4, 8]  # <-- The out commented array is the node count.
     time_path = Path("./slurm5A/")
     path = Path("./results5/")
 else:
@@ -40,7 +76,12 @@ def insert_data(d_array, idx: int, pt: Path):
             continue
         with open(fil, "rb") as f:
             tm = pickle.load(f, fix_imports=True)
-            d_array[idx].append([min(tm, key=lambda v: v.loss).loss, (max(tm, key=lambda v: v.rank).rank + 1) / 64])
+            d_array[idx].append(
+                [
+                    min(tm, key=lambda v: v.loss).loss,
+                    (max(tm, key=lambda v: v.rank).rank + 1) / 64,
+                ]
+            )
 
 
 def create_time_data() -> dict[str, dict[str, list[float]]]:
@@ -79,7 +120,11 @@ def create_time_data() -> dict[str, dict[str, list[float]]]:
             raw_time_data.append(f.read())
 
     for x in raw_time_data:
-        scatter = [st for st in x.split("#-----------------------------------#") if "Current time" in st]
+        scatter = [
+            st
+            for st in x.split("#-----------------------------------#")
+            if "Current time" in st
+        ]
         itx = iter(scatter)
         for program in other_stuff:
             for function_name in functions:
@@ -120,7 +165,9 @@ if __name__ == "__main__":
         ax1: Axes
         ax2: Axes
 
-        fig, (ax2, ax1) = plt.subplots(2, sharex=True, gridspec_kw={"hspace": 0, "height_ratios": (3, 5)})
+        fig, (ax2, ax1) = plt.subplots(
+            2, sharex=True, gridspec_kw={"hspace": 0, "height_ratios": (3, 5)}
+        )
 
         ax1.set_xlabel("Workers")
         ax1.set_xscale("log", base=2)
@@ -142,8 +189,21 @@ if __name__ == "__main__":
                 ms = 6
             else:
                 ms = 7
-            ax1.plot(data[i][1], data[i][0], label=name, marker=marker_list[i], lw=0.75, ms=ms)
-            ax2.plot(data[i][1], time_data[name][function_name], marker=marker_list[i], lw=0.75, ms=ms)
+            ax1.plot(
+                data[i][1],
+                data[i][0],
+                label=name,
+                marker=marker_list[i],
+                lw=0.75,
+                ms=ms,
+            )
+            ax2.plot(
+                data[i][1],
+                time_data[name][function_name],
+                marker=marker_list[i],
+                lw=0.75,
+                ms=ms,
+            )
 
         if function_name == "Rosenbrock" and scaling_type == "strong":
             ax1.set_yscale("symlog", linthresh=1e-36)
@@ -155,9 +215,11 @@ if __name__ == "__main__":
         elif function_name == "Schwefel":
             ax1.set_yscale("symlog")
             ax1.set_ylim(-50000, 5000)
-        elif function_name in (
-                "Schwefel", "Rastrigin", "BiSphere",
-                "BiRastrigin") or function_name == "Rosenbrock" and scaling_type == "weak":
+        elif (
+            function_name in ("Schwefel", "Rastrigin", "BiSphere", "BiRastrigin")
+            or function_name == "Rosenbrock"
+            and scaling_type == "weak"
+        ):
             ax1.set_yscale("linear")
         else:
             ax1.set_yscale("log")
@@ -172,8 +234,13 @@ if __name__ == "__main__":
 
         save_path = Path(f"images/{scaling_type}/pso_{function_name.lower()}.svg")
         if save_path.parent.exists() and not save_path.parent.is_dir():
-            raise OSError("There is something in the way. We can't store our paintings.")
+            raise OSError(
+                "There is something in the way. We can't store our paintings."
+            )
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         fig.savefig(save_path.with_stem(save_path.stem + "_T"), transparent=True)
-        fig.savefig(save_path.with_stem(save_path.stem + "_T").with_suffix(".pdf"), transparent=True)
+        fig.savefig(
+            save_path.with_stem(save_path.stem + "_T").with_suffix(".pdf"),
+            transparent=True,
+        )
