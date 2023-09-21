@@ -184,14 +184,16 @@ def bisphere(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
-    n = len(params)
+    temp = np.array(list(params.values()))
+    n = len(temp)
     d = 1
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
     mu1 = 2.5
     mu2 = -np.sqrt((mu1**2 - d) / s)
-    # TODO: Take care of this problem!
-    return min(np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2))
+    return min(
+        np.sum((temp - mu1) ** 2.0, dtype=float),
+        d * n + s * np.sum((temp - mu2) ** 2.0, dtype=float),
+    )
 
 
 def birastrigin(params: Dict[str, float]) -> float:
@@ -364,8 +366,7 @@ def sphere(params: Dict[str, float]) -> float:
     float
         function value
     """
-    # TODO: Here are some typing conflicts.
-    return np.sum(np.array(list(params.values())) ** 2)
+    return np.sum(np.array(list(params.values())) ** 2.0, dtype=float)
 
 
 def get_function_search_space(
