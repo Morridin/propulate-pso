@@ -12,10 +12,9 @@ import deepdiff
 import numpy as np
 from mpi4py import MPI
 
-from .propagators import Propagator, SelectMin
-from .population import Individual
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG
-
+from .population import Individual
+from .propagators import Propagator, SelectMin
 
 log = logging.getLogger(__name__)  # Get logger instance.
 

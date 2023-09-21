@@ -2,17 +2,16 @@ import copy
 import logging
 import random
 import time
-from typing import Callable, Union, Tuple, List, Type
 from pathlib import Path
+from typing import Callable, Union, Tuple, List, Type
 
 import numpy as np
 from mpi4py import MPI
 
 from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
-from .propagators import Propagator, SelectMin, SelectMax
 from .population import Individual
+from .propagators import Propagator, SelectMin, SelectMax
 from .propulator import Propulator
-
 
 log = logging.getLogger(__name__)
 
